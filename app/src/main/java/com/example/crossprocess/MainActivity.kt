@@ -1,46 +1,59 @@
 package com.example.crossprocess
 
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.content.ServiceConnection
 import android.os.Bundle
+import android.os.IBinder
+import android.os.Message
+import android.os.Messenger
+import android.widget.Button
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
-import com.example.crossprocess.ui.theme.CrossProcessTheme
+import com.example.crossprocess.messenger.MessengerService
 
 class MainActivity : ComponentActivity() {
+
+    private var mService: Messenger?= null
+    private lateinit var btnMsg: Button
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent {
-            CrossProcessTheme {
-                // A surface container using the 'background' color from the theme
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    Greeting("Android")
+        setContentView(R.layout.activity_main)
+
+        btnMsg = findViewById(R.id.btn_msg)
+
+        //绑定service
+        bindService(Intent(this, MessengerService::class.java),
+            connection, Context.BIND_AUTO_CREATE)
+
+        btnMsg.setOnClickListener {
+            mService?.let {
+                //创建消息，通过Bundle传递数据
+                var message = Message.obtain(null, 100)
+                message.data = Bundle().apply {
+                    putString("data", "从客户端发来消息")
                 }
+
+                //像服务端进程发送消息
+                it.send(message)
             }
         }
     }
-}
 
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
+    private val connection: ServiceConnection = object: ServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, ibinder: IBinder?) {
+            mService = Messenger(ibinder)
+        }
 
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    CrossProcessTheme {
-        Greeting("Android")
+        override fun onServiceDisconnected(name: ComponentName?) {
+
+        }
+    }
+
+    override fun onDestroy() {
+        //解绑service
+        unbindService(connection)
+
+        super.onDestroy()
     }
 }
